@@ -62,7 +62,7 @@ export function renderEntry(entry: EntryRecord): string {
 			return `${open("user")}${fork}<div class="text">${esc(userText(message))}</div></article>`;
 		case "pi.assistant":
 			return `${open("assistant")}${fork}${renderAssistant(message as AssistantMessage)}</article>`;
-		case "pi.tool": {
+		case "pi.tool-result": {
 			const result = message as ToolResultMessage;
 			const output = userText(result as unknown as Message);
 			const label = `${result.toolName} ${result.isError ? "failed" : "output"}, ${output.split("\n").length} lines`;
