@@ -1,0 +1,49 @@
+/* bettermotherfuckingwebsite.com, plus a three-column chat layout. */
+:root {
+	color-scheme: light dark;
+	color: light-dark(#444, #ccc);
+	--muted: #888;
+	--line: light-dark(#ddd, #333);
+}
+body { margin: 0; height: 100vh; display: flex; line-height: 1.6; font-size: 18px; }
+h1, h2, h3 { line-height: 1.2; }
+
+main { flex: 1; min-width: 0; max-width: 750px; margin: 0 auto; padding: 0 10px; display: flex; flex-direction: column; }
+#scroll { flex: 1; overflow-y: auto; }
+
+.side { width: 15em; padding: 0 10px; overflow-y: auto; font-size: 16px; border: 0 solid var(--line); }
+.side:not([open]) { width: auto; }
+#sessions { border-right-width: 1px; }
+#branches { border-left-width: 1px; }
+.side summary { cursor: pointer; padding: 10px 0; font-weight: bold; }
+.side ul { list-style: none; padding-left: 0; margin: 0; }
+.side ul ul { padding-left: 1em; border-left: 1px solid var(--line); }
+.side a { display: block; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side a[aria-current] { font-weight: bold; }
+
+article { margin: 1em 0; }
+article.user { border-left: 3px solid var(--muted); padding-left: .7em; }
+article.user .text { white-space: pre-wrap; }
+.fork { float: right; font-size: .7em; opacity: .4; }
+article:hover .fork, .fork:focus { opacity: 1; }
+pre { overflow-x: auto; }
+pre code.hljs { padding: .7em; }
+table { border-collapse: collapse; }
+td, th { border: 1px solid var(--line); padding: .2em .5em; }
+.thinking, .note, .queued { color: var(--muted); }
+.note, .queued { font-style: italic; }
+.error { color: light-dark(#b00, #f66); }
+#error:empty { display: none; }
+
+textarea, select, button { font: inherit; }
+textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5em; font-size: .8em; color: var(--muted); padding-bottom: 10px; }
+
+@media (max-width: 900px) {
+	body { flex-direction: column; height: auto; }
+	.side { width: auto; border-width: 0 0 1px 0 !important; }
+	main { height: 100vh; width: 100%; box-sizing: border-box; }
+}
+.tool summary { font-family: monospace; font-size: .8em; color: var(--muted); cursor: pointer; }
+.tool pre { max-height: 30em; font-size: .8em; }
+article.tool { margin: .2em 0; }

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>poopi</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/hljs-light.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="/hljs-dark.css" media="(prefers-color-scheme: dark)">
+<script type="module" src="/app.js"></script>
+<body>
+<details id="sessions" class="side" open>
+	<summary>Sessions</summary>
+	<p><a href="#">+ New session</a></p>
+	<ul id="session-list"></ul>
+</details>
+<main>
+	<div id="scroll">
+		<div id="transcript"></div>
+		<div id="live"></div>
+	</div>
+	<p id="error" class="error" role="alert"></p>
+	<form id="composer">
+		<textarea id="input" rows="3" aria-label="Message"
+			placeholder="Enter to send (steers while busy), Alt+Enter to queue a follow-up, Shift+Enter for a new line"></textarea>
+		<footer>
+			<span id="stats"></span>
+			<span>
+				<button id="stop" type="button" hidden>Stop</button>
+				<select id="provider" aria-label="Provider"></select>
+				<select id="model" aria-label="Model"></select>
+				<select id="effort" aria-label="Effort"></select>
+			</span>
+		</footer>
+	</form>
+</main>
+<details id="branches" class="side" open>
+	<summary>Branches</summary>
+	<div id="tree"></div>
+</details>
+</body>
+</html>
