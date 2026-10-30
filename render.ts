@@ -52,6 +52,16 @@ export function renderAssistant(message: AssistantMessage): string {
 	return html;
 }
 
+// A message sent with `/skill:name` starts with the skill's whole text; show it folded.
+const skillBlock = /^<skill name="([^"]*)"[^>]*>\n[\s\S]*?\n<\/skill>\n*/;
+
+function renderUser(text: string): string {
+	const skill = skillBlock.exec(text);
+	if (!skill) return `<div class="text">${esc(text)}</div>`;
+	const folded = `<details class="note"><summary>skill ${esc(skill[1])}</summary><pre>${esc(skill[0])}</pre></details>`;
+	return `${folded}<div class="text">${esc(text.slice(skill[0].length))}</div>`;
+}
+
 /** One transcript entry as an `<article>`, or "" for kinds that are not shown (system prompt changes). */
 export function renderEntry(entry: EntryRecord): string {
 	const message = entry.model?.[0];
@@ -59,7 +69,7 @@ export function renderEntry(entry: EntryRecord): string {
 	const fork = `<button class="fork" title="Branch from here">branch</button>`;
 	switch (entry.kind) {
 		case "pi.user":
-			return `${open("user")}${fork}<div class="text">${esc(userText(message))}</div></article>`;
+			return `${open("user")}${fork}${renderUser(userText(message))}</article>`;
 		case "pi.assistant":
 			return `${open("assistant")}${fork}${renderAssistant(message as AssistantMessage)}</article>`;
 		case "pi.tool-result": {
@@ -95,5 +105,5 @@ export function renderLive(live: LiveState, inbox: InboxState | undefined): stri
 /** Title of a conversation: its first own user message. */
 export const titleOf = (entries: readonly EntryRecord[]): string | undefined => {
 	const first = entries.find((e) => e.kind === "pi.user");
-	return first && userText(first.model?.[0]).slice(0, 80);
+	return first && userText(first.model?.[0]).replace(skillBlock, (_, name) => `/skill:${name} `).slice(0, 80);
 };

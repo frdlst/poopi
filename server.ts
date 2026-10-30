@@ -4,7 +4,15 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BACKGROUND_CONTEXT as ctx } from "@earendil-works/chord/context";
 import { type AssistantMessage, getSupportedThinkingLevels, type ModelThinkingLevel } from "@earendil-works/pi-ai";
-import { discoverAndLoadExtensions, getAgentDir, loadProjectContextFiles, ModelRuntime } from "@earendil-works/pi-coding-agent";
+import {
+	DefaultResourceLoader,
+	discoverAndLoadExtensions,
+	formatSkillsForPrompt,
+	getAgentDir,
+	loadProjectContextFiles,
+	ModelRuntime,
+	stripFrontmatter,
+} from "@earendil-works/pi-coding-agent";
 import {
 	type AgentChange,
 	ConversationBusy,
@@ -23,6 +31,7 @@ import {
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
+import { watchExtensions } from "./extensions.ts";
 import { renderEntry, renderLive, titleOf } from "./render.ts";
 
 const { HOST = "127.0.0.1", PORT = "8787", DATA = "data" } = process.env;
@@ -44,6 +53,30 @@ await models.refresh({ allowNetwork: false });
 
 // Tools and the system prompt. Agents work in the directory poopi was started from, unless a conversation sets `cwd`.
 const workdir = process.cwd();
+// Skills from the same places as pi: ~/.pi/agent/skills, .pi/skills, and pi packages in settings.json. Reading them
+// again for every request (about 2 ms) picks up new and changed skills without a restart.
+const skillLoader = new DefaultResourceLoader({
+	cwd: workdir,
+	agentDir,
+	noExtensions: true,
+	noPromptTemplates: true,
+	noThemes: true,
+	noContextFiles: true,
+});
+async function skills() {
+	await skillLoader.reload();
+	return skillLoader.getSkills().skills;
+}
+// `/skill:name args` sends the skill's text with the message, as pi does.
+async function expandSkill(text: string): Promise<string> {
+	const match = /^\/skill:(\S+)\s*([\s\S]*)$/.exec(text);
+	const skill = match && (await skills()).find((s) => s.name === match[1]);
+	if (!match || !skill) return text;
+	const body = stripFrontmatter(await readFile(skill.filePath, "utf8")).trim();
+	const block = `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
+	return match[2].trim() ? `${block}\n\n${match[2].trim()}` : block;
+}
+
 const registry = createRegistry();
 registry.install(CodingTools);
 registry.install(
@@ -62,10 +95,13 @@ registry.install(
 				const rendered = files.map((f) => `<project_instructions path="${f.path}">\n${f.content}\n</project_instructions>`);
 				return files.length ? rendered.join("\n\n") : undefined;
 			}),
+			section("skills", async () => formatSkillsForPrompt(await skills(), "read").trim() || undefined),
 			section("cwd", ({ agent }) => agent.cwd ?? workdir),
 		],
 	}),
 );
+// Agents' own Durable extensions, installed before the harness resumes so their pending tasks find their code.
+const extensionStatus = await watchExtensions(registry, join(import.meta.dirname, "extensions"), ["coding-tools", "poopi"]);
 // POOPI_PID lets an agent restart poopi (see AGENTS.md); the git identity marks commits as the agent's.
 const shellEnv = {
 	POOPI_PID: String(process.pid),
@@ -239,13 +275,17 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<unknown
 		};
 	}
 	if (req.method === "GET" && pathname === "/api/conversations") return listConversations();
+	if (req.method === "GET" && pathname === "/api/extras") {
+		const list = (await skills()).map((s) => ({ name: s.name, description: s.description }));
+		return { skills: list, extensions: extensionStatus() };
+	}
 	if (req.method === "POST" && pathname === "/api/conversations") {
 		const body = await readJson(req);
 		const conversation = await harness.createConversation(
 			{ ownership: { kind: "ownerless" }, agent: agentChange(body) },
 			ctx,
 		);
-		await conversation.submit({ type: "input", content: text(body) }, ctx);
+		await conversation.submit({ type: "input", content: await expandSkill(text(body)) }, ctx);
 		return { id: conversation.id };
 	}
 	const match = /^\/api\/c\/(\d+)\/(\w+)$/.exec(pathname);
@@ -259,7 +299,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<unknown
 	switch (match[2]) {
 		case "submit": {
 			const whenBusy = body.mode === "followUp" ? "followUp" : "steer";
-			await conversation.submit({ type: "input", content: text(body), whenBusy }, ctx);
+			await conversation.submit({ type: "input", content: await expandSkill(text(body)), whenBusy }, ctx);
 			return {};
 		}
 		case "agent":
