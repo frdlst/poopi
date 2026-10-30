@@ -7,7 +7,7 @@ Node serves everything: no framework, no build step, about 100 lines of browser 
 
 ```sh
 npm ci
-PI_EXTENSIONS=/home/flist/devel/kiro.ts/extensions/kiro.ts npm run serve   # http://127.0.0.1:8787
+npm run serve  # http://127.0.0.1:8787
 npm test       # markdown sanitizer tests
 npm run check  # typecheck
 ```
@@ -25,8 +25,9 @@ in the system prompt, and shown under *Skills and extensions* above the editor; 
 Agents add their own tools as Durable extensions in `extensions/`, which reload without a restart (see AGENTS.md).
 
 Models and credentials come from pi: `~/.pi/agent/auth.json` (`/login`), `models.json`, provider environment variables such
-as `KIRO_API_KEY`, and the default model from `settings.json`. Extensions in `~/.pi/agent/extensions/` and those listed in
-`PI_EXTENSIONS` (comma-separated) are loaded, but only for the providers they register.
+as `KIRO_API_KEY`, and the default model from `settings.json`. pi extensions are found as pi finds them (`.pi/extensions/`,
+`~/.pi/agent/extensions/`, and the `packages` in `settings.json`, which is where Kiro comes from), plus `PI_EXTENSIONS`
+(comma-separated paths). Only the providers they register are used.
 
 | Variable | Default | |
 |---|---|---|

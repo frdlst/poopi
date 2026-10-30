@@ -6,7 +6,6 @@ import { BACKGROUND_CONTEXT as ctx } from "@earendil-works/chord/context";
 import { type AssistantMessage, getSupportedThinkingLevels, type ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
 	DefaultResourceLoader,
-	discoverAndLoadExtensions,
 	formatSkillsForPrompt,
 	getAgentDir,
 	loadProjectContextFiles,
@@ -45,7 +44,18 @@ const models = await ModelRuntime.create({
 	authPath: join(agentDir, "auth.json"),
 	modelsPath: join(agentDir, "models.json"),
 });
-const extensions = await discoverAndLoadExtensions(process.env.PI_EXTENSIONS?.split(",") ?? [], process.cwd(), agentDir);
+// Same discovery as pi: .pi/extensions, ~/.pi/agent/extensions, pi packages in settings.json, plus PI_EXTENSIONS.
+const piResources = new DefaultResourceLoader({
+	cwd: process.cwd(),
+	agentDir,
+	additionalExtensionPaths: process.env.PI_EXTENSIONS?.split(",") ?? [],
+	noSkills: true,
+	noPromptTemplates: true,
+	noThemes: true,
+	noContextFiles: true,
+});
+await piResources.reload();
+const extensions = piResources.getExtensions();
 for (const { path, error } of extensions.errors) console.error(`extension ${path}: ${error}`);
 for (const { name, config } of extensions.runtime.pendingProviderRegistrations) models.registerProvider(name, config);
 for (const { provider } of extensions.runtime.pendingNativeProviderRegistrations) models.registerNativeProvider(provider);
