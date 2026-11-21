@@ -19,6 +19,10 @@ Agents have pi's `read`, `write`, `edit` and `bash` tools, running as your user 
 The system prompt includes AGENTS.md files the way pi finds them (`~/.pi/agent/AGENTS.md`, then from `/` down to that
 directory). Anyone who can reach the port has a shell, so keep it on localhost.
 
+Images pasted into the editor or picked with its file button go with the message, and the transcript shows images that
+tools return, so an agent shows a screenshot by `read`ing it. Both are stored in `data/` with the conversation (shrunk to
+2000x2000 pixels), not linked to the files they came from.
+
 Skills are found the way pi finds them (`~/.pi/agent/skills/`, `.pi/skills/`, and pi packages in `settings.json`), listed
 in the system prompt, and shown under *Skills and extensions* above the editor; `/skill:name text` sends one explicitly.
 Durable extensions in `extensions/` add tools, prompt sections and hooks, and reload without a restart (see

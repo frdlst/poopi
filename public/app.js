@@ -155,16 +155,56 @@ function open() {
 // Messages from pi extensions (ctx.ui.notify); the newest stay until the next ones.
 const notify = ({ notices }) => notices.length && ($("notice").textContent = notices.join(" · "));
 
+// Images for the next message, as data: URLs; a click on one removes it.
+let attachments = [];
+function showAttachments() {
+	$("attachments").replaceChildren(
+		...attachments.map((url, i) => {
+			const image = element("img");
+			image.src = url;
+			image.alt = `Attached image ${i + 1}`;
+			const remove = element("button", image);
+			remove.type = "button";
+			remove.title = "Remove";
+			remove.onclick = () => {
+				attachments.splice(i, 1);
+				showAttachments();
+			};
+			return remove;
+		}),
+	);
+}
+const attach = guard(async (files) => {
+	for (const file of files) {
+		if (!file.type.startsWith("image/")) continue;
+		const reader = new FileReader();
+		attachments.push(await new Promise((resolve, reject) => {
+			reader.onload = () => resolve(reader.result);
+			reader.onerror = () => reject(reader.error);
+			reader.readAsDataURL(file);
+		}));
+	}
+	showAttachments();
+});
+$("input").addEventListener("paste", (e) => attach([...e.clipboardData.files]));
+$("attach").onchange = async (e) => {
+	await attach([...e.target.files]);
+	e.target.value = "";
+};
+
 const send = guard(async (mode) => {
 	const text = $("input").value;
-	if (text.trim() === "") return;
+	const images = attachments;
+	if (text.trim() === "" && images.length === 0) return;
 	if (current === undefined) {
-		const { id } = await api("/api/conversations", { ...agent, text });
+		const { id } = await api("/api/conversations", { ...agent, text, images });
 		location.hash = `#${id}`;
 	} else {
-		notify((await api(`/api/c/${current}/submit`, { text, mode })).pi);
+		notify((await api(`/api/c/${current}/submit`, { text, mode, images })).pi);
 	}
 	$("input").value = "";
+	attachments = [];
+	showAttachments();
 	await refresh();
 });
 $("input").addEventListener("keydown", (e) => {

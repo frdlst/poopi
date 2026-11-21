@@ -23,3 +23,10 @@ test("code blocks are highlighted, unknown languages escaped", () => {
 	assert.match(md("```js\nconst a = 1;\n```"), /<span class="hljs-keyword">const<\/span>/);
 	assert.match(md("```nope\n<b>\n```"), /&#60;b&#62;/);
 });
+
+test("images in messages are shown inline, their fields escaped", () => {
+	const content = [{ type: "image", mimeType: 'image/png"><script>', data: "AAAA" }];
+	const html = renderEntry({ id: 1, kind: "pi.tool-result", model: [{ role: "toolResult", toolName: "read", content }] } as never);
+	assert.match(html, /<img src="data:image\/png&#34;&#62;&#60;script&#62;;base64,AAAA" alt="Image the agent read">/);
+	assert.equal(html.includes("<script"), false);
+});

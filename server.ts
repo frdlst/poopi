@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BACKGROUND_CONTEXT as ctx } from "@earendil-works/chord/context";
-import { type AssistantMessage, getSupportedThinkingLevels, type ModelThinkingLevel } from "@earendil-works/pi-ai";
+import { type AssistantMessage, getSupportedThinkingLevels, type ImageContent, type ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
 	DefaultResourceLoader,
 	formatSkillsForPrompt,
@@ -27,10 +27,12 @@ import {
 	type LiveState,
 	section,
 	type UsageState,
+	type UserInput,
 } from "@earendil-works/pi-durable";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
-import { CodingTools } from "@earendil-works/pi-durable/tools";
+import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
+import { createCodingTools, DEFAULT_IMAGE_LIMITS } from "@earendil-works/pi-durable/tools";
 import { watchExtensions } from "./extensions.ts";
 import { piExtensions } from "./pi-extensions.ts";
 import { renderEntry, renderLive, titleOf } from "./render.ts";
@@ -89,8 +91,10 @@ async function expandSkill(text: string): Promise<string> {
 	return match[2].trim() ? `${block}\n\n${match[2].trim()}` : block;
 }
 
+// Shrinks large images (from `read` and pasted ones) to what models take, instead of refusing them.
+const images = await createNodePhotonImages();
 const registry = createRegistry();
-registry.install(CodingTools);
+registry.install(createCodingTools({ images }));
 registry.install(
 	defineExtension({
 		name: "poopi",
@@ -98,7 +102,8 @@ registry.install(
 			section(
 				"preamble",
 				() =>
-					"You are a coding agent in poopi, a web chat built on Pi Durable. Use your tools to read, change and run things. Be concise.",
+					"You are a coding agent in poopi, a web chat built on Pi Durable. Use your tools to read, change and run things. Be concise. " +
+					"To show the user an image file, such as a screenshot, `read` it: the chat shows images from tool results and keeps them after the file is gone.",
 				{ tag: false },
 			),
 			// Same AGENTS.md / CLAUDE.md discovery as pi: the agent dir, then every directory from / down to the cwd.
@@ -174,9 +179,28 @@ function agentChange(body: Body): AgentChange {
 }
 
 function text(body: Body): string {
-	if (typeof body.text !== "string" || body.text.trim() === "") throw new HttpError(400, "Empty message");
+	if (typeof body.text !== "string") throw new HttpError(400, "Expected text");
+	if (body.text.trim() === "" && !(Array.isArray(body.images) && body.images.length)) throw new HttpError(400, "Empty message");
 	return body.text;
 }
+
+// Pasted or uploaded images as data: URLs, prepared before anything is created so a bad one fails the whole request.
+// Uint8Array.from copies them out of Buffer's shared pool, which the image worker cannot take.
+async function attachments(body: Body): Promise<ImageContent[]> {
+	const list: unknown[] = Array.isArray(body.images) ? body.images : [];
+	return Promise.all(
+		list.map(async (url) => {
+			const match = typeof url === "string" ? /^data:(image\/[\w.+-]+);base64,([A-Za-z0-9+/]*={0,2})$/.exec(url) : null;
+			const image = match && (await images.prepare(Uint8Array.from(Buffer.from(match[2], "base64")), match[1], DEFAULT_IMAGE_LIMITS));
+			if (!image) throw new HttpError(400, "Unsupported or broken image");
+			return { type: "image" as const, data: image.data, mimeType: image.mimeType };
+		}),
+	);
+}
+
+// Images are stored in the transcript with the message, so they outlive the files they came from.
+const withImages = (text: string, images: ImageContent[]): UserInput =>
+	images.length === 0 ? text : [...(text.trim() ? [{ type: "text" as const, text }] : []), ...images];
 
 async function readJson(req: IncomingMessage): Promise<Body> {
 	if (!req.headers["content-type"]?.startsWith("application/json")) throw new HttpError(415, "Expected JSON");
@@ -184,7 +208,7 @@ async function readJson(req: IncomingMessage): Promise<Body> {
 	let size = 0;
 	for await (const chunk of req as AsyncIterable<Buffer>) {
 		size += chunk.length;
-		if (size > 1 << 20) throw new HttpError(413, "Body too large");
+		if (size > 1 << 26) throw new HttpError(413, "Body too large");
 		chunks.push(chunk);
 	}
 	try {
@@ -319,12 +343,13 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<unknown
 	}
 	if (req.method === "POST" && pathname === "/api/conversations") {
 		const body = await readJson(req);
+		const images = await attachments(body);
 		const conversation = await harness.createConversation(
 			{ ownership: { kind: "ownerless" }, agent: agentChange(body) },
 			ctx,
 		);
 		const content = await pi.input(conversation.id, text(body), "steer");
-		if (content !== undefined) await conversation.submit({ type: "input", content: await expandSkill(content) }, ctx);
+		if (content !== undefined) await conversation.submit({ type: "input", content: withImages(await expandSkill(content), images) }, ctx);
 		return { id: conversation.id };
 	}
 	const match = /^\/api\/c\/(\d+)\/(\w+)$/.exec(pathname);
@@ -338,8 +363,11 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<unknown
 	switch (match[2]) {
 		case "submit": {
 			const whenBusy = body.mode === "followUp" ? "followUp" : "steer";
+			const images = await attachments(body);
+			// shortcut: pi extensions' `input` hook sees only the text, pass the images too if one needs them.
 			const content = await pi.input(id, text(body), whenBusy);
-			if (content !== undefined) await conversation.submit({ type: "input", content: await expandSkill(content), whenBusy }, ctx);
+			if (content !== undefined)
+				await conversation.submit({ type: "input", content: withImages(await expandSkill(content), images), whenBusy }, ctx);
 			return { pi: await pi.ui(id) };
 		}
 		case "agent":

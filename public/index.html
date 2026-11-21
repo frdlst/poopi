@@ -30,11 +30,13 @@
 		<ul id="extensions"></ul>
 	</details>
 	<form id="composer">
+		<div id="attachments"></div>
 		<textarea id="input" rows="3" aria-label="Message"
-			placeholder="Enter to send (steers while busy), Alt+Enter to queue a follow-up, Shift+Enter for a new line"></textarea>
+			placeholder="Enter to send (steers while busy), Alt+Enter to queue a follow-up, Shift+Enter for a new line, paste images"></textarea>
 		<footer>
 			<span id="stats"></span>
 			<span>
+				<input id="attach" type="file" accept="image/*" multiple aria-label="Attach images">
 				<button id="stop" type="button" hidden>Stop</button>
 				<select id="provider" aria-label="Provider"></select>
 				<select id="model" aria-label="Model"></select>

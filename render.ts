@@ -34,6 +34,14 @@ const userText = (message: Message | undefined): string => {
 	return content.map((c) => (c.type === "text" ? c.text : `[${c.type}]`)).join("\n");
 };
 
+// Images a message carries (pasted ones, or what `read` returned), inline: they live in the transcript, not on disk.
+const imagesOf = (message: Message | undefined, alt: string): string =>
+	Array.isArray(message?.content)
+		? message.content
+				.map((c) => (c.type === "image" ? `<img src="data:${esc(c.mimeType)};base64,${esc(c.data)}" alt="${alt}">` : ""))
+				.join("")
+		: "";
+
 // One line naming the call, like the TUI: `bash ls -la`, `edit server.ts`.
 const callSummary = ({ name, arguments: args }: ToolCall): string =>
 	`${name} ${args.command ?? args.path ?? ""}`.split("\n")[0].slice(0, 120);
@@ -69,14 +77,14 @@ export function renderEntry(entry: EntryRecord): string {
 	const fork = `<button class="fork" title="Branch from here">branch</button>`;
 	switch (entry.kind) {
 		case "pi.user":
-			return `${open("user")}${fork}${renderUser(userText(message))}</article>`;
+			return `${open("user")}${fork}${renderUser(userText(message))}${imagesOf(message, "Attached image")}</article>`;
 		case "pi.assistant":
 			return `${open("assistant")}${fork}${renderAssistant(message as AssistantMessage)}</article>`;
 		case "pi.tool-result": {
 			const result = message as ToolResultMessage;
 			const output = userText(result as unknown as Message);
 			const label = `${result.toolName} ${result.isError ? "failed" : "output"}, ${output.split("\n").length} lines`;
-			return `${open(result.isError ? "tool error" : "tool")}<details><summary>${esc(label)}</summary><pre>${esc(output)}</pre></details></article>`;
+			return `${open(result.isError ? "tool error" : "tool")}<details><summary>${esc(label)}</summary><pre>${esc(output)}</pre></details>${imagesOf(result as unknown as Message, "Image the agent read")}</article>`;
 		}
 		case "pi.compaction":
 			return `${open("compaction")}<details><summary>Context compacted</summary>${md(userText(message))}</details></article>`;
