@@ -132,11 +132,15 @@ function open() {
 		stick(() => {
 			if (reset) $("transcript").replaceChildren();
 			$("transcript").insertAdjacentHTML("beforeend", html);
+			mergeTools();
 		});
 	});
 	events.addEventListener("state", (e) => {
 		const state = JSON.parse(e.data);
+		// Re-rendered on every token: keep the blocks the user opened or closed that way.
+		const open = [...$("live").querySelectorAll("details")].map((d) => d.open);
 		stick(() => ($("live").innerHTML = state.live));
+		$("live").querySelectorAll("details").forEach((d, i) => i < open.length && (d.open = open[i]));
 		$("stats").textContent = `${state.stats} ${state.pi.status}`;
 		notify(state.pi);
 		$("stop").hidden = !state.busy;
@@ -150,6 +154,18 @@ function open() {
 	events.onerror = () => {
 		if (events.readyState === EventSource.CLOSED) $("error").textContent = "Lost the connection to the server";
 	};
+}
+
+// Moves each tool result into its call, so they show as one; the emptied result stays, hidden, for forking.
+function mergeTools() {
+	for (const result of $("transcript").querySelectorAll("article.tool:not([hidden]) > details[data-call]")) {
+		const call = $("transcript").querySelector(`details.tool[data-call="${CSS.escape(result.dataset.call)}"]`);
+		if (!call) continue;
+		call.querySelector("summary").append(" · ", result.querySelector(".outcome"));
+		call.append(result.querySelector("pre"));
+		call.after(...result.parentElement.querySelectorAll("img"));
+		result.parentElement.hidden = true;
+	}
 }
 
 // Messages from pi extensions (ctx.ui.notify); the newest stay until the next ones.
@@ -264,8 +280,49 @@ $("transcript").addEventListener(
 	}),
 );
 
+$("scroll").addEventListener(
+	"click",
+	guard(async (e) => {
+		const button = e.target.closest(".copy");
+		if (!button) return;
+		if (!navigator.clipboard) throw new Error("Copying needs https or localhost");
+		await navigator.clipboard.writeText(button.dataset.md ?? button.parentElement.querySelector("code").textContent);
+		button.textContent = "copied";
+		setTimeout(() => (button.textContent = "copy"), 1000);
+	}),
+);
+
+// Draggable dividers beside the sidebars and above the message box; `data-edge` is the target's side they sit on.
+for (const divider of document.querySelectorAll(".divider")) {
+	const target = $(divider.dataset.target);
+	const { edge } = divider.dataset;
+	const key = `poopi.size.${target.id}`;
+	const resize = (size) => {
+		size = Math.max(48, Math.round(size));
+		target.style.setProperty("--size", `${size}px`);
+		localStorage.setItem(key, size);
+	};
+	if (localStorage.getItem(key)) target.style.setProperty("--size", `${localStorage.getItem(key)}px`);
+	divider.onpointerdown = (e) => {
+		e.preventDefault();
+		divider.setPointerCapture(e.pointerId);
+	};
+	divider.onpointermove = (e) => {
+		if (!divider.hasPointerCapture(e.pointerId)) return;
+		const r = target.getBoundingClientRect();
+		resize(edge === "right" ? e.clientX - r.left : edge === "left" ? r.right - e.clientX : r.bottom - e.clientY);
+	};
+	const keys = { right: ["ArrowRight", "ArrowLeft"], left: ["ArrowLeft", "ArrowRight"], top: ["ArrowUp", "ArrowDown"] }[edge];
+	divider.onkeydown = (e) => {
+		const step = e.key === keys[0] ? 20 : e.key === keys[1] ? -20 : 0;
+		if (!step) return;
+		e.preventDefault();
+		const r = target.getBoundingClientRect();
+		resize((edge === "top" ? r.height : r.width) + step);
+	};
+}
+
 window.addEventListener("hashchange", open);
-if (matchMedia("(max-width: 900px)").matches) for (const side of document.querySelectorAll(".side")) side.open = false;
 await guard(async () => {
 	const available = await api("/api/models");
 	models = available.models;

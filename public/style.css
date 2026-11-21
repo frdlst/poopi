@@ -8,43 +8,51 @@
 body { margin: 0; height: 100vh; display: flex; line-height: 1.6; font-size: 18px; }
 h1, h2, h3 { line-height: 1.2; }
 
-main { flex: 1; min-width: 0; max-width: 750px; margin: 0 auto; padding: 0 10px; display: flex; flex-direction: column; }
-#scroll { flex: 1; overflow-y: auto; }
+main { flex: 1; min-width: 0; padding: 0 10px; display: flex; flex-direction: column; }
+/* Wide content wraps or scrolls inside itself (pre, table); the pane itself never scrolls sideways. */
+#scroll { flex: 1; overflow-y: auto; overflow-x: hidden; overflow-wrap: break-word; padding-right: 1em; scrollbar-gutter: stable; }
 
-.side { width: 15em; padding: 0 10px; overflow-y: auto; font-size: 16px; border: 0 solid var(--line); }
-.side:not([open]) { width: auto; }
-#sessions { border-right-width: 1px; }
-#branches { border-left-width: 1px; }
-.side summary { cursor: pointer; padding: 10px 0; font-weight: bold; }
+.side { flex: none; box-sizing: border-box; width: var(--size, 15em); max-width: 40vw; padding: 0 10px; overflow-y: auto; font-size: 16px; }
+.side h2 { font-size: 1em; margin: 0; padding: 10px 0; }
+.divider { flex: none; background: var(--line) padding-box; border: 3px solid transparent; touch-action: none; }
+.divider[aria-orientation=vertical] { width: 1px; border-block: 0; cursor: col-resize; }
+.divider[aria-orientation=horizontal] { height: 1px; border-inline: 0; cursor: row-resize; }
+.divider:hover, .divider:focus-visible { background-color: var(--muted); outline: none; }
 .side ul { list-style: none; padding-left: 0; margin: 0; }
 .side ul ul { padding-left: 1em; border-left: 1px solid var(--line); }
 .side a { display: block; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side a[aria-current] { font-weight: bold; }
-.archive { float: right; font-size: .7em; opacity: .4; }
-li:hover > .archive, .archive:focus { opacity: 1; }
+.archive { float: right; font-size: .7em; }
 #archived summary { font-weight: normal; color: var(--muted); }
 
 article { margin: 1em 0; }
 article.user { border-left: 3px solid var(--muted); padding-left: .7em; }
 article.user .text { white-space: pre-wrap; }
-.fork { float: right; font-size: .7em; opacity: .4; }
-article:hover .fork, .fork:focus { opacity: 1; }
+.fork, article > .copy { float: right; font-size: .7em; margin-left: .3em; }
+.code { position: relative; }
+.code > .copy { position: absolute; top: .3em; right: .3em; font-size: .7em; }
+/* Hover controls stay invisible but focusable, and always show where there is no hover. */
+.archive, .fork, .copy { opacity: 0; }
+li:hover > .archive, article:hover > :is(.fork, .copy), .code:hover > .copy, :is(.archive, .fork, .copy):focus-visible { opacity: 1; }
+@media (hover: none) { .archive, .fork, .copy { opacity: 1; } }
 pre { overflow-x: auto; }
 pre code.hljs { padding: .7em; }
-table { border-collapse: collapse; }
-td, th { border: 1px solid var(--line); padding: .2em .5em; }
+table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+td, th { border: 1px solid var(--line); padding: .2em .5em; overflow-wrap: anywhere; }
 .thinking, .note, .queued { color: var(--muted); }
+.thinking summary { cursor: pointer; }
 .note, .queued { font-style: italic; }
 .error { color: light-dark(#b00, #f66); }
 #error:empty, #notice:empty { display: none; }
 
 textarea, select, button { font: inherit; }
-textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+textarea { width: 100%; box-sizing: border-box; resize: none; height: var(--size, auto); max-height: 60vh; }
 footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5em; font-size: .8em; color: var(--muted); padding-bottom: 10px; }
 
 @media (max-width: 900px) {
 	body { flex-direction: column; height: auto; }
-	.side { width: auto; border-width: 0 0 1px 0 !important; }
+	.side { width: auto; max-width: none; max-height: 25vh; border-bottom: 1px solid var(--line); }
+	.divider[aria-orientation=vertical] { display: none; }
 	main { height: 100vh; width: 100%; box-sizing: border-box; }
 }
 .tool summary { font-family: monospace; font-size: .8em; color: var(--muted); cursor: pointer; }

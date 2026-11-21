@@ -35,7 +35,7 @@ import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
 import { createCodingTools, DEFAULT_IMAGE_LIMITS } from "@earendil-works/pi-durable/tools";
 import { watchExtensions } from "./extensions.ts";
 import { piExtensions } from "./pi-extensions.ts";
-import { renderEntry, renderLive, titleOf } from "./render.ts";
+import { options, renderEntry, renderLive, titleOf } from "./render.ts";
 
 const { HOST = "127.0.0.1", PORT = "8787", DATA = "data" } = process.env;
 // Host header allow-list against DNS rebinding; the browser always sends this, also through an SSH tunnel.
@@ -44,6 +44,7 @@ const allowedHosts = new Set(["localhost", "127.0.0.1", "[::1]", ...(process.env
 // Same providers and credentials as the pi CLI: auth.json, models.json, and extensions that register providers.
 const agentDir = getAgentDir();
 const piSettings = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8").catch(() => "{}"));
+options.openThinking = piSettings.hideThinkingBlock !== true;
 const models = await ModelRuntime.create({
 	authPath: join(agentDir, "auth.json"),
 	modelsPath: join(agentDir, "models.json"),

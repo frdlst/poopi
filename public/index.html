@@ -8,15 +8,16 @@
 <link rel="stylesheet" href="/hljs-dark.css" media="(prefers-color-scheme: dark)">
 <script type="module" src="/app.js"></script>
 <body>
-<details id="sessions" class="side" open>
-	<summary>Sessions</summary>
+<aside id="sessions" class="side">
+	<h2>Sessions</h2>
 	<p><a href="#">+ New session</a></p>
 	<ul id="session-list"></ul>
 	<details id="archived" hidden>
 		<summary>Archived</summary>
 		<ul id="archived-list"></ul>
 	</details>
-</details>
+</aside>
+<div class="divider" role="separator" aria-orientation="vertical" aria-label="Resize sessions" tabindex="0" data-target="sessions" data-edge="right"></div>
 <main>
 	<div id="scroll">
 		<div id="transcript"></div>
@@ -31,6 +32,7 @@
 	</details>
 	<form id="composer">
 		<div id="attachments"></div>
+		<div class="divider" role="separator" aria-orientation="horizontal" aria-label="Resize message box" tabindex="0" data-target="input" data-edge="top"></div>
 		<textarea id="input" rows="3" aria-label="Message"
 			placeholder="Enter to send (steers while busy), Alt+Enter to queue a follow-up, Shift+Enter for a new line, paste images"></textarea>
 		<footer>
@@ -45,9 +47,10 @@
 		</footer>
 	</form>
 </main>
-<details id="branches" class="side" open>
-	<summary>Branches</summary>
+<div class="divider" role="separator" aria-orientation="vertical" aria-label="Resize branches" tabindex="0" data-target="branches" data-edge="left"></div>
+<aside id="branches" class="side">
+	<h2>Branches</h2>
 	<div id="tree"></div>
-</details>
+</aside>
 </body>
 </html>

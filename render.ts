@@ -7,6 +7,12 @@ import { Marked } from "marked";
 export const esc = (s: string): string =>
 	s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+/** Set by the server from pi's settings.json: thinking blocks start open unless `hideThinkingBlock` is true. */
+export const options = { openThinking: true };
+
+const copy = (markdown?: string) =>
+	`<button class="copy" type="button" title="Copy"${markdown === undefined ? "" : ` data-md="${esc(markdown)}"`}>copy</button>`;
+
 const marked = new Marked({
 	renderer: {
 		// Raw HTML from the model is shown as text, never parsed.
@@ -14,7 +20,7 @@ const marked = new Marked({
 		code: ({ text, lang }) => {
 			const language = lang?.split(/\s/)[0];
 			const body = language && hljs.getLanguage(language) ? hljs.highlight(text, { language }).value : esc(text);
-			return `<pre><code class="hljs">${body}</code></pre>\n`;
+			return `<div class="code">${copy()}<pre><code class="hljs">${body}</code></pre></div>\n`;
 		},
 		// Only plain web links; `false` falls back to marked's own (escaping) renderer.
 		link({ href, tokens }) {
@@ -46,14 +52,23 @@ const imagesOf = (message: Message | undefined, alt: string): string =>
 const callSummary = ({ name, arguments: args }: ToolCall): string =>
 	`${name} ${args.command ?? args.path ?? ""}`.split("\n")[0].slice(0, 120);
 
+// Arguments as written, not as JSON: a lone one bare (bash's command), several as `key: value`.
+const callArguments = ({ arguments: args }: ToolCall): string => {
+	const show = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v, null, 2));
+	const entries = Object.entries(args ?? {});
+	return entries.length === 1 ? show(entries[0][1]) : entries.map(([k, v]) => `${k}: ${show(v)}`).join("\n");
+};
+
 export function renderAssistant(message: AssistantMessage): string {
 	let html = "";
+	const text = message.content.flatMap((b) => (b.type === "text" && b.text.trim() ? [b.text] : []));
+	if (text.length) html += copy(text.join("\n\n"));
 	for (const block of message.content) {
 		if (block.type === "text") html += md(block.text);
 		else if (block.type === "thinking" && block.thinking.trim() !== "")
-			html += `<details class="thinking"><summary>Thinking</summary>${md(block.thinking)}</details>`;
+			html += `<details class="thinking"${options.openThinking ? " open" : ""}><summary>Thinking</summary>${md(block.thinking)}</details>`;
 		else if (block.type === "toolCall")
-			html += `<details class="tool"><summary>${esc(callSummary(block))}</summary><pre>${esc(JSON.stringify(block.arguments, null, 2))}</pre></details>`;
+			html += `<details class="tool" data-call="${esc(block.id)}"><summary>${esc(callSummary(block))}</summary><pre>${esc(callArguments(block))}</pre></details>`;
 	}
 	if (message.stopReason === "error") html += `<p class="error">${esc(message.errorMessage ?? "Error")}</p>`;
 	if (message.stopReason === "aborted") html += `<p class="note">Aborted</p>`;
@@ -82,9 +97,11 @@ export function renderEntry(entry: EntryRecord): string {
 			return `${open("assistant")}${fork}${renderAssistant(message as AssistantMessage)}</article>`;
 		case "pi.tool-result": {
 			const result = message as ToolResultMessage;
-			const output = userText(result as unknown as Message);
-			const label = `${result.toolName} ${result.isError ? "failed" : "output"}, ${output.split("\n").length} lines`;
-			return `${open(result.isError ? "tool error" : "tool")}<details><summary>${esc(label)}</summary><pre>${esc(output)}</pre></details>${imagesOf(result as unknown as Message, "Image the agent read")}</article>`;
+			// Durable appends diagnostics as `<harness>` blocks; show just their lines.
+			const output = userText(result as unknown as Message).replace(/<harness>\n([\s\S]*?)\n<\/harness>/g, "$1");
+			const outcome = `${result.isError ? "failed" : "output"}, ${output.split("\n").length} lines`;
+			// The browser moves the output into its call (`data-call`) and keeps this article, hidden, for forking.
+			return `${open(result.isError ? "tool error" : "tool")}<details data-call="${esc(result.toolCallId)}"><summary>${esc(result.toolName)} <span class="outcome${result.isError ? " error" : ""}">${esc(outcome)}</span></summary><pre>${esc(output)}</pre></details>${imagesOf(result as unknown as Message, "Image the agent read")}</article>`;
 		}
 		case "pi.compaction":
 			return `${open("compaction")}<details><summary>Context compacted</summary>${md(userText(message))}</details></article>`;
