@@ -223,8 +223,11 @@ const send = guard(async (mode) => {
 	showAttachments();
 	await refresh();
 });
+// Touch keyboards have no Shift+Enter: there Enter is a new line and the Send button sends.
+const touch = matchMedia("(pointer: coarse)").matches;
+if (touch) $("input").placeholder = "Message (paste images)";
 $("input").addEventListener("keydown", (e) => {
-	if (e.key !== "Enter" || e.shiftKey || e.isComposing) return;
+	if (e.key !== "Enter" || e.shiftKey || e.isComposing || touch) return;
 	e.preventDefault();
 	send(e.altKey ? "followUp" : "steer");
 });

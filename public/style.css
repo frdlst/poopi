@@ -49,11 +49,25 @@ textarea, select, button { font: inherit; }
 textarea { width: 100%; box-sizing: border-box; resize: none; height: var(--size, auto); max-height: 60vh; }
 footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5em; font-size: .8em; color: var(--muted); padding-bottom: 10px; }
 
+/* Phones: one screen, no page scroll; sessions on top, branches only when there are forks, then the chat. */
 @media (max-width: 900px) {
-	body { flex-direction: column; height: auto; }
-	.side { width: auto; max-width: none; max-height: 25vh; border-bottom: 1px solid var(--line); }
+	body { flex-direction: column; height: 100dvh; }
+	.side { width: auto; max-width: none; max-height: 20dvh; border-bottom: 1px solid var(--line); }
+	#sessions h2 { display: none; }
+	.side p { margin: .3em 0; }
+	#branches:not(:has(li li)) { display: none; }
 	.divider[aria-orientation=vertical] { display: none; }
-	main { height: 100vh; width: 100%; box-sizing: border-box; }
+	main { order: 1; flex: 1; min-height: 0; }
+	#scroll { padding-right: 0; }
+}
+/* Touch: Enter makes a new line, so there is a Send button; the file input shows only its button. */
+@media (pointer: fine) { #send { display: none; } }
+/* A 7px divider is no drag target for a finger, and a size dragged by accident must not squeeze out the transcript. */
+@media (pointer: coarse) {
+	.divider[aria-orientation=horizontal] { display: none; }
+	textarea { height: auto; max-height: 30dvh; }
+	#attach { font-size: 0; }
+	#attach::file-selector-button { font-size: 14px; }
 }
 .tool summary { font-family: monospace; font-size: .8em; color: var(--muted); cursor: pointer; }
 .tool pre { max-height: 30em; font-size: .8em; }
