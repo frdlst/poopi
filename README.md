@@ -20,6 +20,10 @@ The system prompt includes AGENTS.md files the way pi finds them (`~/.pi/agent/A
 directory), so this repo's [AGENTS.md](AGENTS.md) tells an agent how to change poopi safely. Anyone who can reach the
 port has a shell, so keep it on localhost.
 
+Skills are found the way pi finds them (`~/.pi/agent/skills/`, `.pi/skills/`, and pi packages in `settings.json`), listed
+in the system prompt, and shown under *Skills and extensions* above the editor; `/skill:name text` sends one explicitly.
+Agents add their own tools as Durable extensions in `extensions/`, which reload without a restart (see AGENTS.md).
+
 Models and credentials come from pi: `~/.pi/agent/auth.json` (`/login`), `models.json`, provider environment variables such
 as `KIRO_API_KEY`, and the default model from `settings.json`. Extensions in `~/.pi/agent/extensions/` and those listed in
 `PI_EXTENSIONS` (comma-separated) are loaded, but only for the providers they register.

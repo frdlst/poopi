@@ -47,3 +47,7 @@ footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5
 .tool summary { font-family: monospace; font-size: .8em; color: var(--muted); cursor: pointer; }
 .tool pre { max-height: 30em; font-size: .8em; }
 article.tool { margin: .2em 0; }
+#extras { font-size: .8em; color: var(--muted); }
+#extras summary { cursor: pointer; }
+#extras ul { margin: .3em 0; padding-left: 1.2em; max-height: 12em; overflow-y: auto; }
+#extras button { font-size: 1em; }

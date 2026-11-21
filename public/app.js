@@ -158,6 +158,32 @@ $("composer").onsubmit = (e) => {
 };
 $("stop").onclick = guard(() => api(`/api/c/${current}/abort`, {}));
 
+// Read when opened, so new skills and reloaded extensions show without a page reload.
+$("extras").ontoggle = guard(async () => {
+	if (!$("extras").open) return;
+	const { skills, extensions } = await api("/api/extras");
+	$("skills").replaceChildren(
+		...skills.map((skill) => {
+			const use = element("button", `/skill:${skill.name}`);
+			use.type = "button";
+			use.onclick = () => {
+				$("input").value = `/skill:${skill.name} ${$("input").value}`;
+				$("input").focus();
+			};
+			return element("li", use, ` ${skill.description}`);
+		}),
+	);
+	if (skills.length === 0) $("skills").replaceChildren(element("li", "No skills"));
+	$("extensions").replaceChildren(
+		...extensions.map((e) => {
+			const item = element("li", `extension ${e.name ?? "(not loaded)"} from extensions/${e.file}`);
+			if (e.error) item.append(element("span", `: ${e.error}`));
+			if (e.error) item.lastChild.className = "error";
+			return item;
+		}),
+	);
+});
+
 $("transcript").addEventListener(
 	"click",
 	guard(async (e) => {
@@ -167,6 +193,8 @@ $("transcript").addEventListener(
 		if (entry.classList.contains("user")) {
 			// Like pi's /tree on a user message: branch from just before it, with its text in the editor.
 			$("input").value = entry.querySelector(".text").textContent;
+			const skill = entry.querySelector("details.note summary")?.textContent.replace(/^skill /, "/skill:");
+			if (skill) $("input").value = `${skill} ${$("input").value}`;
 			at = entry.previousElementSibling?.dataset.id;
 		}
 		// Before the first message there is nothing to branch from: start a new session with the same model.
