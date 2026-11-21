@@ -152,7 +152,7 @@ function viewState(view: ConversationView) {
 		busy: live.run !== undefined,
 		live: renderLive(live, view.docs["pi.inbox"] as InboxState | undefined),
 		agent: { provider: agent.model?.provider, modelId: agent.model?.modelId, thinkingLevel: agent.thinkingLevel ?? "off" },
-		stats: `↑${k(sum((u) => u.input))} ↓${k(sum((u) => u.output))} R${k(sum((u) => u.cacheRead))} W${k(sum((u) => u.cacheWrite))} $${sum((u) => u.cost.total).toFixed(3)}${context}`,
+		stats: `↑${k(sum((u) => u.input))} ↓${k(sum((u) => u.output))}${sum((u) => u.cacheRead) ? ` R${k(sum((u) => u.cacheRead))}` : ""}${sum((u) => u.cacheWrite) ? ` W${k(sum((u) => u.cacheWrite))}` : ""} $${sum((u) => u.cost.total).toFixed(3)}${context}`,
 	};
 }
 
