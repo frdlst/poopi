@@ -3,7 +3,7 @@ const LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 let models = []; // [{ provider, id, name, levels }]
 let agent; // { provider, modelId, thinkingLevel } of the open conversation, or for the next new one
-let conversations = []; // [{ id, parent?, title? }]
+let conversations = []; // [{ id, parent?, title?, archived? }]
 let current; // open conversation ID; undefined for a new session
 let events;
 
@@ -80,9 +80,24 @@ function link(conversation) {
 	return a;
 }
 
+// A session's sidebar row: its link and a button that moves it to or from Archived.
+function session(c) {
+	const toggle = element("button", c.archived ? "unarchive" : "archive");
+	toggle.type = "button";
+	toggle.className = "archive";
+	toggle.onclick = guard(async () => {
+		await api(`/api/c/${c.id}/archive`, { archived: !c.archived });
+		await refresh();
+	});
+	return element("li", toggle, link(c));
+}
+
 function showSidebars() {
 	const roots = conversations.filter((c) => c.parent === undefined).reverse();
-	$("session-list").replaceChildren(...roots.map((c) => element("li", link(c))));
+	$("session-list").replaceChildren(...roots.filter((c) => !c.archived).map(session));
+	const archived = roots.filter((c) => c.archived);
+	$("archived-list").replaceChildren(...archived.map(session));
+	$("archived").hidden = archived.length === 0;
 	const byId = new Map(conversations.map((c) => [c.id, c]));
 	let root = byId.get(current);
 	while (root?.parent !== undefined) root = byId.get(root.parent);

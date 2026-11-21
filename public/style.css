@@ -20,6 +20,9 @@ main { flex: 1; min-width: 0; max-width: 750px; margin: 0 auto; padding: 0 10px;
 .side ul ul { padding-left: 1em; border-left: 1px solid var(--line); }
 .side a { display: block; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side a[aria-current] { font-weight: bold; }
+.archive { float: right; font-size: .7em; opacity: .4; }
+li:hover > .archive, .archive:focus { opacity: 1; }
+#archived summary { font-weight: normal; color: var(--muted); }
 
 article { margin: 1em 0; }
 article.user { border-left: 3px solid var(--muted); padding-left: .7em; }

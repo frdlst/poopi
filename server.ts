@@ -18,6 +18,7 @@ import {
 	type ConversationId,
 	type ConversationView,
 	createRegistry,
+	defineDoc,
 	defineExtension,
 	type EntryRecord,
 	type EntryId,
@@ -236,9 +237,19 @@ async function events(req: IncomingMessage, res: ServerResponse, id: Conversatio
 	});
 }
 
+// Durable 1.4.0 cannot delete a conversation, so archiving only hides a session in the sidebar.
+const Archive = defineDoc<{ ids: number[] }>({
+	kind: "poopi.archive",
+	version: 1,
+	scope: "session",
+	initial: () => ({ ids: [] }),
+	checkpointWhen: () => true,
+});
+
 async function listConversations() {
 	return harness.commit(async (tx) => {
-		const list: { id: ConversationId; parent?: ConversationId; title?: string }[] = [];
+		const archived = new Set((await tx.doc(Archive)).ids);
+		const list: { id: ConversationId; parent?: ConversationId; title?: string; archived?: true }[] = [];
 		let cursor;
 		do {
 			const page = await tx.scanConversations({}, 256, cursor);
@@ -247,7 +258,12 @@ async function listConversations() {
 				// shortcut: one entry scan per conversation for its title, store titles in a document if the list gets long.
 				const minEntryId = c.parent && ((c.parent.at + 1) as EntryId);
 				const own = await tx.scanEntries({ conversationId: c.id, minEntryId, order: "ascending" }, 10);
-				list.push({ id: c.id, parent: c.parent?.conversationId, title: titleOf(own.items) });
+				list.push({
+					id: c.id,
+					parent: c.parent?.conversationId,
+					title: titleOf(own.items),
+					...(archived.has(c.id) && { archived: true as const }),
+				});
 			}
 			cursor = page.next;
 		} while (cursor !== undefined);
@@ -330,6 +346,14 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<unknown
 		}
 		case "abort":
 			await conversation.abort(ctx);
+			return {};
+		case "archive":
+			if (typeof body.archived !== "boolean") throw new HttpError(400, "Expected archived: true or false");
+			await harness.commit(async (tx) => {
+				const doc = await tx.doc(Archive);
+				doc.ids = doc.ids.filter((i) => i !== id);
+				if (body.archived) doc.ids.push(id);
+			}, ctx);
 			return {};
 	}
 	throw new HttpError(404, "Not found");
