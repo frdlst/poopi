@@ -27,7 +27,11 @@ Durable extensions in `extensions/` add tools, prompt sections and hooks, and re
 Models and credentials come from pi: `~/.pi/agent/auth.json` (`/login`), `models.json`, provider environment variables such
 as `ANTHROPIC_API_KEY`, and the default model from `settings.json`. pi extensions are found as pi finds them (`.pi/extensions/`,
 `~/.pi/agent/extensions/`, and the `packages` in `settings.json`), plus `PI_EXTENSIONS`
-(comma-separated paths). Only the providers they register are used.
+(comma-separated paths). They load at startup, and each conversation gets its own instances. Supported: providers,
+`registerTool`, `registerCommand` (`/name args` in the editor), `appendEntry` and `sessionManager.getBranch()`, the
+events `session_start`, `input`, `before_agent_start` (prompt sections, before every request), `tool_call`,
+`tool_result` and `agent_end`, and `ui.notify` and `ui.setStatus` (shown under the transcript and in the footer).
+Dialogs answer as cancelled, TUI components do nothing, and other APIs report that poopi does not support them.
 
 | Variable | Default | |
 |---|---|---|

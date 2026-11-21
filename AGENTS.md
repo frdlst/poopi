@@ -4,6 +4,7 @@ A web chat on Pi Durable; see README.md for what it does and how to run it.
 
 - `server.ts`: HTTP server, Pi Durable harness, tools and system prompt.
 - `extensions.ts`: loads and hot-reloads `extensions/`.
+- `pi-extensions.ts`: runs pi extensions on Durable with pi's `ExtensionRunner`, one instance per conversation.
 - `extensions/`: Durable extensions, see below.
 - `render.ts`: transcript HTML. Everything model-generated must go through `esc()` or `md()`; `render.test.ts` checks it.
 - `public/`: browser code, no framework and no build step.
@@ -28,7 +29,8 @@ To add tools, prompt sections or hooks, add a file to `extensions/` whose defaul
 - Put helper modules in a subdirectory: every top-level file must be an extension, and helpers are not reloaded.
 - `npm run check` typechecks `extensions/` too. `GET /api/extras` shows what loaded and each file's error.
 - Extensions run inside the poopi process: one that blocks or loops takes poopi down.
-- These are not pi extensions (`pi.registerTool`); pi's extensions only supply model providers here.
+- These are not pi extensions (`pi.registerTool`). pi extensions (see README.md) also work, through `pi-extensions.ts`;
+  pi APIs it does not map throw "... is not supported in poopi", and a `shortcut:` comment marks each partial one.
 
 Skills are pi skills (`SKILL.md`), found where pi finds them: `~/.pi/agent/skills/`, `.pi/skills/` in poopi's working
 directory, and pi packages. New ones show up on the next request.

@@ -36,7 +36,7 @@ td, th { border: 1px solid var(--line); padding: .2em .5em; }
 .thinking, .note, .queued { color: var(--muted); }
 .note, .queued { font-style: italic; }
 .error { color: light-dark(#b00, #f66); }
-#error:empty { display: none; }
+#error:empty, #notice:empty { display: none; }
 
 textarea, select, button { font: inherit; }
 textarea { width: 100%; box-sizing: border-box; resize: vertical; }

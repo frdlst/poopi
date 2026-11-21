@@ -121,6 +121,7 @@ function open() {
 	$("stats").textContent = "";
 	$("stop").hidden = true;
 	$("error").textContent = "";
+	$("notice").textContent = "";
 	showSidebars();
 	showAgent();
 	$("input").focus();
@@ -136,7 +137,8 @@ function open() {
 	events.addEventListener("state", (e) => {
 		const state = JSON.parse(e.data);
 		stick(() => ($("live").innerHTML = state.live));
-		$("stats").textContent = state.stats;
+		$("stats").textContent = `${state.stats} ${state.pi.status}`;
+		notify(state.pi);
 		$("stop").hidden = !state.busy;
 		// Only on change: rebuilding the dropdowns closes one the user has open.
 		if (state.agent.provider && JSON.stringify(state.agent) !== JSON.stringify(agent)) {
@@ -150,6 +152,9 @@ function open() {
 	};
 }
 
+// Messages from pi extensions (ctx.ui.notify); the newest stay until the next ones.
+const notify = ({ notices }) => notices.length && ($("notice").textContent = notices.join(" · "));
+
 const send = guard(async (mode) => {
 	const text = $("input").value;
 	if (text.trim() === "") return;
@@ -157,7 +162,7 @@ const send = guard(async (mode) => {
 		const { id } = await api("/api/conversations", { ...agent, text });
 		location.hash = `#${id}`;
 	} else {
-		await api(`/api/c/${current}/submit`, { text, mode });
+		notify((await api(`/api/c/${current}/submit`, { text, mode })).pi);
 	}
 	$("input").value = "";
 	await refresh();

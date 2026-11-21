@@ -32,6 +32,7 @@ import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { watchExtensions } from "./extensions.ts";
+import { piExtensions } from "./pi-extensions.ts";
 import { renderEntry, renderLive, titleOf } from "./render.ts";
 
 const { HOST = "127.0.0.1", PORT = "8787", DATA = "data" } = process.env;
@@ -111,8 +112,19 @@ registry.install(
 		],
 	}),
 );
+// pi extensions beyond their providers: hooks, commands, tools and prompt sections, one instance per conversation.
+const pi = piExtensions({
+	harness: () => harness,
+	models,
+	agentDir,
+	cwd: process.cwd(),
+	paths: process.env.PI_EXTENSIONS?.split(",") ?? [],
+	loaded: extensions.extensions,
+	expandSkill,
+});
+registry.install(pi.extension);
 // Agents' own Durable extensions, installed before the harness resumes so their pending tasks find their code.
-const extensionStatus = await watchExtensions(registry, join(import.meta.dirname, "extensions"), ["coding-tools", "poopi"]);
+const extensionStatus = await watchExtensions(registry, join(import.meta.dirname, "extensions"), ["coding-tools", "poopi", "pi-extensions"]);
 // POOPI_PID lets an agent restart poopi (see AGENTS.md); the git identity marks commits as the agent's.
 const shellEnv = {
 	POOPI_PID: String(process.pid),
@@ -221,13 +233,13 @@ async function events(req: IncomingMessage, res: ServerResponse, id: Conversatio
 	const write = (event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 	write("entries", { reset: true, html: history.map(renderEntry).join("") });
 	let last: number = history.at(-1)?.id ?? 0;
-	const send = (view: ConversationView) => {
+	const send = async (view: ConversationView) => {
 		const fresh = view.entries.filter((e) => e.id > last);
 		if (fresh.length > 0) write("entries", { reset: false, html: fresh.map(renderEntry).join("") });
 		last = fresh.at(-1)?.id ?? last;
-		write("state", viewState(view));
+		write("state", { ...viewState(view), pi: await pi.ui(id) });
 	};
-	send(watch.value);
+	await send(watch.value);
 	watch.start(async (view) => send(view));
 	// Keeps SSH tunnels and proxies from dropping an idle stream.
 	const ping = setInterval(() => res.write(": ping\n\n"), 30_000);
@@ -311,7 +323,8 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<unknown
 			{ ownership: { kind: "ownerless" }, agent: agentChange(body) },
 			ctx,
 		);
-		await conversation.submit({ type: "input", content: await expandSkill(text(body)) }, ctx);
+		const content = await pi.input(conversation.id, text(body), "steer");
+		if (content !== undefined) await conversation.submit({ type: "input", content: await expandSkill(content) }, ctx);
 		return { id: conversation.id };
 	}
 	const match = /^\/api\/c\/(\d+)\/(\w+)$/.exec(pathname);
@@ -325,8 +338,9 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<unknown
 	switch (match[2]) {
 		case "submit": {
 			const whenBusy = body.mode === "followUp" ? "followUp" : "steer";
-			await conversation.submit({ type: "input", content: await expandSkill(text(body)), whenBusy }, ctx);
-			return {};
+			const content = await pi.input(id, text(body), whenBusy);
+			if (content !== undefined) await conversation.submit({ type: "input", content: await expandSkill(content), whenBusy }, ctx);
+			return { pi: await pi.ui(id) };
 		}
 		case "agent":
 			await conversation.configure(agentChange(body), ctx);
